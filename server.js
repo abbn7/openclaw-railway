@@ -30,7 +30,7 @@ function setupConfig() {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
 
-  // تم تحديث الهيكل ليتوافق مع الإصدار الجديد من clawdbot
+  // تم تحديث الهيكل ليتوافق تماماً مع أحدث إصدار من clawdbot بناءً على سجلات الخطأ
   const config = {
     agents: {
       defaults: {
@@ -38,38 +38,20 @@ function setupConfig() {
           primary: "anthropic/claude-sonnet-4-20250514",
           fallbacks: []
         },
-        models: ["anthropic/claude-sonnet-4-20250514"],
-        thinkingLevel: "high",
-        verboseLevel: "normal",
+        models: {
+          "anthropic/claude-sonnet-4-20250514": {
+            provider: "anthropic",
+            model: "claude-3-5-sonnet-20240620"
+          }
+        },
         workspace: "/tmp/openclaw-workspace",
         sandbox: {
-          mode: "off",
-          allowedTools: ["*"],
-          deniedTools: []
-        },
-        tools: {
-          bash: { enabled: true, elevated: false },
-          browser: { enabled: true },
-          canvas: { enabled: true },
-          nodes: { enabled: true },
-          cron: { enabled: true },
-          discord: { enabled: true },
-          slack: { enabled: true },
-          gateway: { enabled: true },
-          sessions_list: { enabled: true },
-          sessions_history: { enabled: true },
-          sessions_send: { enabled: true },
-          sessions_spawn: { enabled: true },
-          read: { enabled: true },
-          write: { enabled: true },
-          edit: { enabled: true },
-          process: { enabled: true }
+          mode: "off"
         }
       }
     },
     gateway: {
       port: parseInt(PORT) + 1,
-      bind: "0.0.0.0",
       auth: {
         mode: "password",
         password: process.env.GATEWAY_PASSWORD || "openclaw123",
@@ -81,58 +63,20 @@ function setupConfig() {
     },
     channels: {
       telegram: {
-        enabled: true,
         botToken: TELEGRAM_TOKEN,
         allowFrom: ["*"],
         groups: {
           "*": {
             enabled: true,
-            requireMention: false,
-            activation: "always"
-          }
-        },
-        dm: {
-          policy: "open",
-          allowFrom: ["*"]
-        }
-      },
-      whatsapp: {
-        enabled: false,
-        allowFrom: ["*"],
-        groups: ["*"]
-      },
-      discord: {
-        enabled: false,
-        token: process.env.DISCORD_BOT_TOKEN || "",
-        dm: {
-          policy: "open",
-          allowFrom: ["*"]
-        },
-        guilds: {
-          "*": {
-            enabled: true,
-            activation: "always"
+            requireMention: false
           }
         }
-      },
-      slack: {
-        enabled: false,
-        botToken: process.env.SLACK_BOT_TOKEN || "",
-        appToken: process.env.SLACK_APP_TOKEN || ""
       }
     },
     browser: {
       enabled: true,
       headless: true,
       color: "#FF4500"
-    },
-    skills: {
-      bundled: { enabled: true },
-      managed: { enabled: true },
-      workspace: { enabled: true }
-    },
-    usage: {
-      tracking: "full"
     }
   };
 
@@ -165,38 +109,47 @@ NODE_ENV=production
 
 function startGateway() {
   console.log('🚀 Starting OpenClaw Gateway...\n');
-  console.log('═══════════════════════════════════════════════════');
-  console.log('🦞 OpenClaw is LIVE!');
-  console.log('═══════════════════════════════════════════════════');
-  console.log(`📍 Port: ${PORT}`);
-  console.log(`🤖 Telegram Bot: Active`);
-  console.log(`🧠 AI Model: Claude Sonnet 4`);
-  console.log('═══════════════════════════════════════════════════\n');
-
-  const gateway = spawn('npx', ['clawdbot', 'gateway', '--verbose'], {
+  
+  // استخدام clawdbot doctor --fix أولاً لضمان سلامة الإعدادات
+  console.log('🩺 Running clawdbot doctor --fix...');
+  const doctor = spawn('npx', ['clawdbot', 'doctor', '--fix'], {
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      ANTHROPIC_API_KEY: ANTHROPIC_KEY,
-      TELEGRAM_BOT_TOKEN: TELEGRAM_TOKEN,
-      PORT: (parseInt(PORT) + 1).toString()
-    }
+    env: { ...process.env, HOME }
   });
 
-  gateway.on('error', (error) => {
-    console.error('❌ Gateway error:', error);
-    process.exit(1);
-  });
+  doctor.on('exit', () => {
+    console.log('═══════════════════════════════════════════════════');
+    console.log('🦞 OpenClaw is LIVE!');
+    console.log('═══════════════════════════════════════════════════');
+    console.log(`📍 Port: ${PORT}`);
+    console.log(`🤖 Telegram Bot: Active`);
+    console.log(`🧠 AI Model: Claude Sonnet 4`);
+    console.log('═══════════════════════════════════════════════════\n');
 
-  gateway.on('exit', (code) => {
-    console.log(`⚠️ Gateway exited with code ${code}`);
-    if (code !== 0) {
-      console.log('🔄 Restarting in 5 seconds...');
-      setTimeout(() => startGateway(), 5000);
-    }
-  });
+    const gateway = spawn('npx', ['clawdbot', 'gateway', '--verbose'], {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        ANTHROPIC_API_KEY: ANTHROPIC_KEY,
+        TELEGRAM_BOT_TOKEN: TELEGRAM_TOKEN,
+        PORT: (parseInt(PORT) + 1).toString(),
+        HOME
+      }
+    });
 
-  return gateway;
+    gateway.on('error', (error) => {
+      console.error('❌ Gateway error:', error);
+      process.exit(1);
+    });
+
+    gateway.on('exit', (code) => {
+      console.log(`⚠️ Gateway exited with code ${code}`);
+      if (code !== 0) {
+        console.log('🔄 Restarting in 5 seconds...');
+        setTimeout(() => startGateway(), 5000);
+      }
+    });
+  });
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -315,9 +268,6 @@ function startHealthServer() {
     });
   });
 
-  // تم تغيير البورت ليكون نفس بورت التطبيق الرئيسي لضمان عمل Health Check في Railway
-  // سيقوم Gateway بالعمل على نفس البورت أو بورت مختلف داخلياً إذا لزم الأمر
-  // لكن Railway يتوقع استجابة على PORT المخصص
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`💚 Health server running on port ${PORT}`);
   });
@@ -334,36 +284,18 @@ async function main() {
     console.log('║    🦞 OpenClaw - ALL FEATURES ENABLED 🦞         ║');
     console.log('╚═══════════════════════════════════════════════════╝');
     console.log('');
-    console.log('✅ Agent: Claude Sonnet 4 (Thinking: HIGH)');
-    console.log('✅ Bash: ENABLED (all commands)');
-    console.log('✅ Browser: ENABLED');
-    console.log('✅ Canvas: ENABLED');
-    console.log('✅ Nodes: ENABLED');
-    console.log('✅ Cron: ENABLED');
-    console.log('✅ Skills: ENABLED (all)');
-    console.log('✅ Sessions Tools: ENABLED');
-    console.log('✅ File Tools: ENABLED (read/write/edit)');
-    console.log('✅ Process Tools: ENABLED');
-    console.log('✅ Telegram: OPEN (no restrictions)');
-    console.log('✅ Groups: ENABLED (auto-respond)');
-    console.log('✅ Sandbox: DISABLED (full access)');
-    console.log('');
-    console.log('⚠️  WARNING: Bot has FULL SYSTEM ACCESS!');
-    console.log('⚠️  Only use with trusted users!');
-    console.log('');
-
+    
     // 1. إنشاء الإعدادات
     setupConfig();
     setupEnv();
 
-    // 2. بدء Health Server (على بورت PORT)
+    // 2. بدء Health Server
     startHealthServer();
 
     // 3. الانتظار قليلاً
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // 4. بدء Gateway (سيحاول العمل على نفس البورت أو بورت آخر)
-    // ملاحظة: إذا كان clawdbot يحاول حجز نفس البورت، قد نحتاج لتعديل إعدادات gateway.port في config
+    // 4. بدء Gateway
     startGateway();
 
   } catch (error) {

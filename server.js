@@ -30,7 +30,7 @@ function setupConfig() {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
 
-  // تم تحديث الهيكل ليتوافق تماماً مع أحدث إصدار من clawdbot بناءً على سجلات الخطأ
+  // تم تحديث الهيكل لضمان تفعيل قناة تليجرام والرسائل الخاصة (DM)
   const config = {
     agents: {
       defaults: {
@@ -63,8 +63,14 @@ function setupConfig() {
     },
     channels: {
       telegram: {
+        enabled: true,
         botToken: TELEGRAM_TOKEN,
         allowFrom: ["*"],
+        dm: {
+          enabled: true,
+          policy: "open",
+          allowFrom: ["*"]
+        },
         groups: {
           "*": {
             enabled: true,

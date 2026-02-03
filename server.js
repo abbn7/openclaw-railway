@@ -8,7 +8,7 @@ import express from 'express';
 // 🦞 OpenClaw Auto-Deployer for Railway
 // ════════════════════════════════════════════════════════════════
 
-const PORT = process.env.PORT || 18789;
+const PORT = process.env.PORT || 8080;
 const HOME = process.env.HOME || '/root';
 const CONFIG_DIR = join(HOME, '.clawdbot');
 const CONFIG_FILE = join(CONFIG_DIR, 'clawdbot.json');
@@ -30,14 +30,17 @@ function setupConfig() {
     mkdirSync(CONFIG_DIR, { recursive: true });
   }
 
+  // تم تحديث الهيكل ليتوافق مع الإصدار الجديد من clawdbot
   const config = {
-    agent: {
-      model: "anthropic/claude-sonnet-4-20250514",
-      thinkingLevel: "high",
-      verboseLevel: "normal"
-    },
     agents: {
       defaults: {
+        model: {
+          primary: "anthropic/claude-sonnet-4-20250514",
+          fallbacks: []
+        },
+        models: ["anthropic/claude-sonnet-4-20250514"],
+        thinkingLevel: "high",
+        verboseLevel: "normal",
         workspace: "/tmp/openclaw-workspace",
         sandbox: {
           mode: "off",
@@ -65,7 +68,7 @@ function setupConfig() {
       }
     },
     gateway: {
-      port: PORT,
+      port: parseInt(PORT) + 1,
       bind: "0.0.0.0",
       auth: {
         mode: "password",
@@ -176,7 +179,7 @@ function startGateway() {
       ...process.env,
       ANTHROPIC_API_KEY: ANTHROPIC_KEY,
       TELEGRAM_BOT_TOKEN: TELEGRAM_TOKEN,
-      PORT: PORT
+      PORT: (parseInt(PORT) + 1).toString()
     }
   });
 
@@ -312,9 +315,11 @@ function startHealthServer() {
     });
   });
 
-  const healthPort = parseInt(PORT) + 1;
-  app.listen(healthPort, '0.0.0.0', () => {
-    console.log(`💚 Health server running on port ${healthPort}`);
+  // تم تغيير البورت ليكون نفس بورت التطبيق الرئيسي لضمان عمل Health Check في Railway
+  // سيقوم Gateway بالعمل على نفس البورت أو بورت مختلف داخلياً إذا لزم الأمر
+  // لكن Railway يتوقع استجابة على PORT المخصص
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`💚 Health server running on port ${PORT}`);
   });
 }
 
@@ -351,13 +356,14 @@ async function main() {
     setupConfig();
     setupEnv();
 
-    // 2. بدء Health Server
+    // 2. بدء Health Server (على بورت PORT)
     startHealthServer();
 
     // 3. الانتظار قليلاً
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // 4. بدء Gateway
+    // 4. بدء Gateway (سيحاول العمل على نفس البورت أو بورت آخر)
+    // ملاحظة: إذا كان clawdbot يحاول حجز نفس البورت، قد نحتاج لتعديل إعدادات gateway.port في config
     startGateway();
 
   } catch (error) {

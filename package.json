@@ -1,0 +1,19 @@
+{
+  "name": "openclaw-railway-full",
+  "version": "1.0.0",
+  "description": "OpenClaw with ALL features enabled on Railway",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "clawdbot": "latest",
+    "express": "^4.18.2",
+    "ws": "^8.16.0"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=9.0.0"
+  }
+}

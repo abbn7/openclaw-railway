@@ -1,0 +1,4 @@
+node_modules/
+.clawdbot/
+*.log
+.DS_Store
